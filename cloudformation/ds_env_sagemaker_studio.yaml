@@ -49,6 +49,11 @@ Parameters:
     Description: Jupyter kernel display name, this name is displayed in custom images in Studio
     Default: Python 3
 
+  StudioLCCName:
+    Description: Studio Lifecycle Config Name
+    Type: String
+    Default: disable-download-lcc
+
 Outputs:
   StudioDomainId:
     Description: SageMaker Studio Domain ID
@@ -215,6 +220,7 @@ Resources:
                   - 'sagemaker:StartNotebookInstance'
                   - 'sagemaker:StopNotebookInstance'
                   - 'sagemaker:CreateApp'
+                  - 'sagemaker:CreateSpace'
                   - 'sagemaker:AddTags'
                   - 'sagemaker:DeleteApp'
                   - 'sagemaker:GetSagemakerServicecatalogPortfolioStatus'
@@ -274,6 +280,55 @@ Resources:
       Value: !GetAtt DataScientistDefaultRole.Arn
       Description: SSM-Parameter - Default DataScientist Role Arn
 
+  LCCLambdaFunction: 
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      FunctionName: CreateAttachLCCFunction
+      Description: Creates and attaches Studio Lifecycle Config to Studio Domain
+      Runtime: python3.9
+      Code: studio_lcc_custom_resource.zip
+      Handler: create_attach_studio_lcc.handler
+      MemorySize: 320
+      Timeout: 180
+      Role: !GetAtt LCCLambdaFunctionRole.Arn
+
+  LCCLambdaFunctionRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Sid: LambdaTrustRelationship
+            Effect: Allow
+            Principal:
+              Service:
+                - 'lambda.amazonaws.com'
+            Action:
+              - 'sts:AssumeRole'
+      RoleName: !Sub cfn-create-attach-lcc-function-role-${SharedServiceStackSetName}
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: SageMakerAccessInlinePolicy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Sid: DataScientistAdditionalPolicies
+                Effect: Allow
+                Action:
+                  - 'sagemaker:UpdateDomain'
+                  - 'sagemaker:CreateStudioLifecycleConfig'
+                  - 'sagemaker:DeleteStudioLifecycleConfig'
+                  - 'sagemaker:DescribeStudioLifecycleConfig'
+                Resource: '*'
+
+  InvokeLCCLambdaFunction:
+    Type: Custom::Resource
+    Properties:
+      ServiceToken: !GetAtt LCCLambdaFunction.Arn
+      LCCName: !Ref StudioLCCName
+      DomainId: !Ref SageMakerStudioDomain
+  
   SageMakerStudioDomain:
     Type: AWS::SageMaker::Domain
     DependsOn:

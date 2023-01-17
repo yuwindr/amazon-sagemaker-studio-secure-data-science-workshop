@@ -26,11 +26,11 @@ QUICKSTART_MODE=true
 CFN_BUCKET_NAME=${CFN_BUCKET_NAME:="secure-data-science-cloudformation-$RANDOM-$AWS_DEFAULT_REGION"}
 PROJECT_NAME="quickstart"
 # files that won't be uploaded by `aws cloudformation package`
-UPLOAD_LIST="ds_environment.yaml project_template.zip ds_administration.yaml ds_env_studio_user_profile_v1.yaml ds_env_studio_user_profile_v2.yaml ds_env_sagemaker_studio.yaml"
+UPLOAD_LIST="ds_environment.yaml project_template.zip ds_administration.yaml ds_env_studio_user_profile_v1.yaml ds_env_studio_user_profile_v2.yaml"
 # files that need to be scrubbed with sed to replace < S3_CFN_STAGING_BUCKET > with an actual S3 bucket name
 SELF_PACKAGE_LIST="ds_administration.yaml ds_env_backing_store.yaml"
 # files to be packaged using `aws cloudformation package`
-AWS_PACKAGE_LIST="ds_environment.yaml ds_administration.yaml"
+AWS_PACKAGE_LIST="ds_environment.yaml ds_administration.yaml ds_env_sagemaker_studio.yaml"
 TMP_OUTPUT_DIR="/tmp/build/${AWS_DEFAULT_REGION}"
 PUBLISH_PYPI=${PUBLISH_PYPI:True}
 
@@ -55,6 +55,11 @@ popd
 echo "Zipping detective control..."
 pushd src/detective_control
 zip -r ${TMP_OUTPUT_DIR}/vpc_detective_control.zip ./*
+popd
+
+echo "Zipping studio lcc custom resource..."
+pushd src/studio_lcc_custom_resource
+zip -r ${TMP_OUTPUT_DIR}/studio_lcc_custom_resource.zip ./*
 popd
 
 ## publish materials to target AWS regions

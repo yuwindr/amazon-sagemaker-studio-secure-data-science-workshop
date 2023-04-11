@@ -44,16 +44,16 @@ Parameters:
       - ml.t3.xlarge
       - system
 
-  DeploymentInstanceType:
+  DeploymentInstanceTypes:
     Description: Allowed Instance Type to Deploy Models
-    Type: String
-    Default: ml.c5.large
-    AllowedValues:
-      - ml.m5.2xlarge
-      - ml.m5.4xlarge
-      - ml.m5.8xlarge
-      - ml.c5.large
-      - ml.t3.medium
+    Type: CommaDelimitedList
+    Default: ml.m5.2xlarge, ml.m5.4xlarge, ml.m5.8xlarge, ml.c5.large, ml.t3.medium, ml.p3.2xlarge, ml.p3.8xlarge, ml.g4dn.xlarge, ml.g4dn.2xlarge, ml.g4dn.8xlarge
+    # AllowedValues:
+    #   - ml.m5.2xlarge
+    #   - ml.m5.4xlarge
+    #   - ml.m5.8xlarge
+    #   - ml.c5.large
+    #   - ml.t3.medium
 
 Mappings:
   JupyterLab3ImageRegionMap:
@@ -167,15 +167,24 @@ Resources:
             Condition:
               'Null':
                 'sagemaker:VpcSubnets': 'true'
-          - Effect: Allow
+          # - Effect: Allow
+          #   Action:
+          #     - 'sagemaker:CreateEndpointConfig'
+          #   Resource: '*'
+          #   Condition:
+          #     'Null':
+          #       'sagemaker:VolumeKmsKey': 'false'
+          #     'ForAllValues:StringLike':
+          #       'sagemaker:InstanceTypes': !Ref DeploymentInstanceTypes
+          - Effect: Deny
             Action:
               - 'sagemaker:CreateEndpointConfig'
             Resource: '*'
             Condition:
-              'Null':
-                'sagemaker:VolumeKmsKey': 'false'
-              'ForAllValues:StringLike':
-                'sagemaker:InstanceTypes': !Ref DeploymentInstanceType
+              # 'Null':
+              #   'sagemaker:VolumeKmsKey': 'true'
+              'ForAllValues:StringNotEquals':
+                'sagemaker:InstanceTypes': !Ref DeploymentInstanceTypes
           - Effect: Allow
             Action:
               - 'sagemaker:*'
@@ -292,6 +301,7 @@ Resources:
                 - - 'arn:aws:ecr:*:*:repository/'
                   - Fn::ImportValue:
                       !Sub 'ds-shared-ecr-repository-${SharedServiceStackSetName}'
+              - 'arn:aws:ecr:*:*:repository/huggingface-*'
           - Sid: ECRAuthTokenAccess
             Effect: Allow
             Action:

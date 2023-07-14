@@ -94,7 +94,8 @@ Resources:
       Path: /service-role/
       RoleName: !Sub 'ds-notebook-role-${TeamName}-${EnvType}-${StudioUserProfileName}'
       ManagedPolicyArns:
-        - !Ref SageMakerExecPolicy
+        - !Ref SageMakerExecPolicySageMakerActions
+        - !Ref SageMakerExecPolicyOtherActions
         - 'arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess'
         - 'arn:aws:iam::aws:policy/AWSCodeArtifactReadOnlyAccess'
       Tags:
@@ -103,18 +104,13 @@ Resources:
         - Key: EnvironmentType
           Value: !Ref EnvType
 
-  SageMakerExecPolicy:
+  SageMakerExecPolicySageMakerActions:
     Type: 'AWS::IAM::ManagedPolicy'
     Properties:
-      ManagedPolicyName: !Sub 'ds-notebook-policy-${TeamName}-${EnvType}-${StudioUserProfileName}'
+      ManagedPolicyName: !Sub 'ds-notebook-policy-${TeamName}-${EnvType}-${StudioUserProfileName}-sagemaker-actions'
       PolicyDocument:
         Version: 2012-10-17
         Statement:
-          - Effect: Allow
-            Action:
-              - 'ssm:GetParameters'
-              - 'ssm:GetParameter'
-            Resource: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/ds-*'
           - Effect: Allow
             Action:
               - 'sagemaker:CreateHyperParameterTuningJob'
@@ -149,7 +145,16 @@ Resources:
                 'sagemaker:InstanceTypes': !Ref DeploymentInstanceTypes
           - Effect: Allow
             Action:
-              - 'sagemaker:*'
+              - 'sagemaker:Create*'
+              - 'sagemaker:List*'
+              - 'sagemaker:GetRecord'
+              - 'sagemaker:BatchGetRecord'
+              - 'sagemaker:Invoke*'
+              - 'sagemaker:DescribeImageVersion'
+              - 'sagemaker:DescribeModelCardExportJob'
+              - 'sagemaker:DescribeAction'
+              - 'sagemaker:DescribePipelineDefinitionForExecution'
+              - 'sagemaker:Search'
             Resource: '*'
             Condition:
               'ForAllValues:StringEqualsIfExists':
@@ -163,6 +168,53 @@ Resources:
                 'sagemaker:VpcSecurityGroupIds':
                   - Fn::ImportValue:
                       !Sub 'ds-sagemaker-vpc-sg-${SharedServiceStackSetName}'
+          - Sid: 'AllowDeleteDefaultApp'
+            Effect: Allow
+            Action:
+              - 'sageMaker:DeleteApp'
+            Resource: 
+              - Fn::Join:
+                  - ''
+                  - - !Sub 'arn:${AWS::Partition}:sagemaker:${AWS::Region}:${AWS::AccountId}:app/'
+                    - Fn::ImportValue:
+                        !Sub 'ds-sagemaker-studio-${SharedServiceStackSetName}-domain-id'
+                    - '/'
+                    - !Ref StudioUserProfileName
+                    - '/jupyterserver/default'
+          - Sid: ResourceAccessRequireDomainTag
+            Effect: Allow
+            Action:
+              - 'sageMaker:Update*'
+              - 'sageMaker:Delete*'
+              - 'sageMaker:Describe*'
+              - 'sageMaker:BatchDescribeModelPackage'
+              - 'sagemaker:Start*'
+              - 'sagemaker:Stop*'
+              - 'sagemaker:AssociateTrialComponent'
+              - 'sagemaker:DisassociateTrialComponent'
+              - "sagemaker:GetModelPackageGroupPolicy"
+            Resource: '*'
+            Condition:
+              'StringEquals':
+                'aws:ResourceTag/sagemaker:domain-arn':
+                  Fn::Join:
+                    - ''
+                    - - !Sub 'arn:${AWS::Partition}:sagemaker:${AWS::Region}:${AWS::AccountId}:domain/'
+                      - Fn::ImportValue:
+                          !Sub 'ds-sagemaker-studio-${SharedServiceStackSetName}-domain-id'
+
+  SageMakerExecPolicyOtherActions:
+    Type: 'AWS::IAM::ManagedPolicy'
+    Properties:
+      ManagedPolicyName: !Sub 'ds-notebook-policy-${TeamName}-${EnvType}-${StudioUserProfileName}-other-actions'
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - 'ssm:GetParameters'
+              - 'ssm:GetParameter'
+            Resource: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/ds-*'
           - Effect: Allow
             Action:
               - 'application-autoscaling:DeleteScalingPolicy'
